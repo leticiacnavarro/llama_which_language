@@ -2,11 +2,12 @@ import torch
 from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM, AutoModelForSequenceClassification
 from torch import float32, nn
 
-class LlamaModel():
-    def __init__(self, model_id, quantizer, access_token, type):
+class LlamaClassificationModel():
+    def __init__(self, model_id, quantizer, access_token):
 
-        self.quantizer = quantizer
-
+        self.model_id = model_id
+        self.access_token = access_token
+         
         if(quantizer == '4b'):
             quantizer_cfg = BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -21,25 +22,20 @@ class LlamaModel():
         else:    
             quantizer_cfg = None
 
-        if type == 'classifier':
-
-            self.model = AutoModelForSequenceClassification.from_pretrained(
-                model_id,
-                quantization_config=quantizer_cfg,
-                token=access_token
-            )
-
-        elif type == "chat":
-
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                quantization_config=quantizer_cfg,
-                token=access_token
-            )
-
+        self.quantizer_cfg = quantizer_cfg
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=access_token)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
+
+    def set_model(self, id2label, label2id, num_labels):
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            self.model_id,
+            quantization_config= self.quantizer_cfg,
+            id2label=id2label,
+            label2id=label2id,
+            num_labels=num_labels,
+            token=self.access_token
+        )        
 
     def prepare_model(self):
         for param in self.model.parameters():
@@ -49,7 +45,6 @@ class LlamaModel():
                 param.data = param.data.to(float32)
             self.model.gradient_checkpointing_enable()  # reduce number of stored activations
             self.model.enable_input_require_grads()
-            self.model.lm_head = CastOutputToFloat(self.model.lm_head)
         return self.model
 
     def summarize(self, text: str):

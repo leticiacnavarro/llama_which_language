@@ -1,3 +1,3 @@
-from .model import LlamaModel
+from .model import LlamaClassificationModel
 
-__all__ = [LlamaModel]
+__all__ = [LlamaClassificationModel]
